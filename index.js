@@ -17,7 +17,7 @@ const authenticateGoogle = () => {
   return oAuth2Client;
 };
 
-// NUEVO: El portero saluda a cron-job para que no marque error
+// El portero saluda a cron-job para que no marque error
 app.get('/', (req, res) => {
   res.status(200).send('El portero está despierto y listo para la boda.');
 });
@@ -62,9 +62,6 @@ app.post('/get-upload-link', async (req, res) => {
     res.status(500).send('Error interno del servidor');
   }
 });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
