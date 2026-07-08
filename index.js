@@ -1,53 +1,56 @@
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
 const { google } = require('googleapis');
-const stream = require('stream');
 
 const app = express();
 app.use(cors());
-const upload = multer({ storage: multer.memoryStorage() });
+app.use(express.json()); 
 
-// Configuración de variables de entorno
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
 const FOLDER_ID = process.env.FOLDER_ID;
 
 const authenticateGoogle = () => {
-  const oAuth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    'https://developers.google.com/oauthplayground'
-  );
-  oAuth2Client.setCredentials({
-    refresh_token: REFRESH_TOKEN
-  });
-  return google.drive({ version: 'v3', auth: oAuth2Client });
+  const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
+  oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+  return oAuth2Client;
 };
 
-app.post('/upload', upload.single('file'), async (req, res) => {
+app.post('/get-upload-link', async (req, res) => {
   try {
-    if (!req.file) return res.status(400).send('No file uploaded.');
+    const { fileName, mimeType } = req.body;
 
-    const drive = authenticateGoogle();
-    const bufferStream = new stream.PassThrough();
-    bufferStream.end(req.file.buffer);
+    if (!fileName || !mimeType) {
+      return res.status(400).send('Faltan datos del archivo.');
+    }
 
-    const response = await drive.files.create({
-      requestBody: { 
-        name: req.file.originalname, 
-        parents: [FOLDER_ID] 
+    const authClient = authenticateGoogle();
+    const { token } = await authClient.getAccessToken();
+
+    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Upload-Content-Type': mimeType
       },
-      media: { 
-        mimeType: req.file.mimetype, 
-        body: bufferStream 
-      }
+      body: JSON.stringify({
+        name: fileName,
+        parents: [FOLDER_ID]
+      })
     });
 
-    res.status(200).send({ message: 'Foto subida con éxito', fileId: response.data.id });
+    const uploadUrl = response.headers.get('location');
+
+    if (!uploadUrl) {
+      throw new Error('No se pudo generar el enlace de Google Drive');
+    }
+
+    res.status(200).json({ uploadUrl });
+    
   } catch (error) {
-    console.error('Error al subir:', error);
+    console.error('Error al generar el enlace:', error);
     res.status(500).send('Error interno del servidor');
   }
 });
