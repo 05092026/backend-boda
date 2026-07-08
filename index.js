@@ -28,12 +28,16 @@ app.post('/get-upload-link', async (req, res) => {
     const authClient = authenticateGoogle();
     const { token } = await authClient.getAccessToken();
 
+    // NUEVO: Capturamos la dirección de tu web para que Google la autorice
+    const origin = req.headers.origin || '*';
+
     const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'X-Upload-Content-Type': mimeType
+        'X-Upload-Content-Type': mimeType,
+        'Origin': origin // <-- ESTA ES LA CLAVE PARA QUITAR LA FALSA ALARMA
       },
       body: JSON.stringify({
         name: fileName,
