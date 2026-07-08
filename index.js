@@ -17,6 +17,11 @@ const authenticateGoogle = () => {
   return oAuth2Client;
 };
 
+// NUEVO: El portero saluda a cron-job para que no marque error
+app.get('/', (req, res) => {
+  res.status(200).send('El portero está despierto y listo para la boda.');
+});
+
 app.post('/get-upload-link', async (req, res) => {
   try {
     const { fileName, mimeType } = req.body;
@@ -28,7 +33,6 @@ app.post('/get-upload-link', async (req, res) => {
     const authClient = authenticateGoogle();
     const { token } = await authClient.getAccessToken();
 
-    // NUEVO: Capturamos la dirección de tu web para que Google la autorice
     const origin = req.headers.origin || '*';
 
     const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
@@ -37,7 +41,7 @@ app.post('/get-upload-link', async (req, res) => {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Upload-Content-Type': mimeType,
-        'Origin': origin // <-- ESTA ES LA CLAVE PARA QUITAR LA FALSA ALARMA
+        'Origin': origin 
       },
       body: JSON.stringify({
         name: fileName,
@@ -58,6 +62,9 @@ app.post('/get-upload-link', async (req, res) => {
     res.status(500).send('Error interno del servidor');
   }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
