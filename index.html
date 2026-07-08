@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Sube tu foto o vídeo de la boda</h1>
+    <input type="file" id="fileInput" accept="image/*,video/*">
+    <button onclick="subirArchivo()">Subir ahora</button>
+    <p id="status"></p>
+
+    <script>
+        async function subirArchivo() {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('status');
+            const file = fileInput.files[0];
+            
+            if (!file) return alert("Selecciona un archivo primero");
+
+            status.innerText = "Subiendo... por favor no cierres esta ventana.";
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // AQUÍ PONEMOS LA DIRECCIÓN DE TU OFICINA DE RENDER
+            const response = await fetch('https://backend-boda-qgt1.onrender.com/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                status.innerText = "¡Éxito! Tu foto está en el Drive.";
+            } else {
+                status.innerText = "Hubo un error al subir.";
+            }
+        }
+    </script>
+</body>
+</html>
