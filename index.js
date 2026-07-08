@@ -1,56 +1,56 @@
 const express = require('express');
+const cors = require('cors');
 const multer = require('multer');
 const { google } = require('googleapis');
-const path = require('path');
-require('dotenv').config();
+const stream = require('stream');
 
 const app = express();
+app.use(cors());
+const upload = multer({ storage: multer.memoryStorage() });
 
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 } 
-});
+// Configuración de variables de entorno
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
+const FOLDER_ID = process.env.FOLDER_ID;
 
-const auth = new google.auth.GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
-});
+const authenticateGoogle = () => {
+  const oAuth2Client = new google.auth.OAuth2(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    'https://developers.google.com/oauthplayground'
+  );
+  oAuth2Client.setCredentials({
+    refresh_token: REFRESH_TOKEN
+  });
+  return google.drive({ version: 'v3', auth: oAuth2Client });
+};
 
-const drive = google.drive({ version: 'v3', auth });
+app.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send('No file uploaded.');
 
-app.use(express.static('public'));
+    const drive = authenticateGoogle();
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(req.file.buffer);
 
-app.post('/upload', upload.single('archivo'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).send('No se ha subido ningún archivo.');
-        }
+    const response = await drive.files.create({
+      requestBody: { 
+        name: req.file.originalname, 
+        parents: [FOLDER_ID] 
+      },
+      media: { 
+        mimeType: req.file.mimetype, 
+        body: bufferStream 
+      }
+    });
 
-        const fileMetadata = {
-            name: req.file.originalname,
-            parents: [process.env.DRIVE_FOLDER_ID] 
-        };
-
-        const media = {
-            mimeType: req.file.mimetype,
-            body: require('stream').Readable.from(req.file.buffer),
-        };
-
-        const response = await drive.files.create({
-            requestBody: fileMetadata,
-            media: media,
-            fields: 'id',
-        });
-
-        res.status(200).send('Archivo subido con éxito a Drive.');
-    } catch (error) {
-        console.error('Error al subir:', error);
-        res.status(500).send('Error al procesar la subida.');
-    }
+    res.status(200).send({ message: 'Foto subida con éxito', fileId: response.data.id });
+  } catch (error) {
+    console.error('Error al subir:', error);
+    res.status(500).send('Error interno del servidor');
+  }
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-    console.log(`Servidor activo en el puerto ${PORT}`);
-});
-
-server.timeout = 300000;
+app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
