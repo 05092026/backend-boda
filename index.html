@@ -122,27 +122,43 @@
             const progressContainer = document.getElementById('progress-container');
             const progressBar = document.getElementById('progress-bar');
             
-            message.innerText = "Creando recuerdos...";
+            message.innerText = "Preparando el envío...";
             progressContainer.style.display = 'block';
-            progressBar.style.width = '30%';
-
-            const formData = new FormData();
-            formData.append('file', file);
+            progressBar.style.width = '10%';
 
             try {
-                progressBar.style.width = '70%';
-                const response = await fetch('https://backend-boda-qgt1.onrender.com/upload', {
+                // 1. Pedir la etiqueta de envío al portero (Render)
+                const responsePermiso = await fetch('https://backend-boda-qgt1.onrender.com/get-upload-link', {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        mimeType: file.type
+                    })
                 });
 
-                if (response.ok) {
+                if (!responsePermiso.ok) throw new Error("Error pidiendo permiso");
+                const data = await responsePermiso.json();
+                const uploadUrl = data.uploadUrl;
+
+                progressBar.style.width = '40%';
+                message.innerText = "Subiendo archivo...";
+
+                // 2. Enviar el archivo pesadísimo directamente a Google Drive
+                const responseSubida = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body: file
+                });
+
+                if (responseSubida.ok) {
                     progressBar.style.width = '100%';
                     message.innerText = "¡Gracias por formar parte de nuestra historia!";
                 } else {
-                    throw new Error("Error");
+                    throw new Error("Error en la subida directa");
                 }
             } catch (err) {
+                console.error(err);
                 message.innerText = "Algo falló, inténtalo de nuevo por favor.";
                 progressContainer.style.display = 'none';
             }
